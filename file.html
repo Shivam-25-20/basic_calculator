@@ -1,0 +1,210 @@
+<!--
+Single-file Calculator (index.html)
+Drop this file in a GitHub repo and enable GitHub Pages (or push to main) to publish.
+Features:
+- Responsive layout
+- Mouse + keyboard support
+- Decimal and percent handling
+- Clear, Backspace, Copy, Live preview
+No external libraries.
+-->
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Calculator</title>
+  <style>
+  :root{
+    --bg:#0b1220; --card:#071129; --accent:#7c3aed; --muted:#9aa4b2; --glass: rgba(255,255,255,0.03);
+    font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,#071029,#071129);color:#e6eef8}
+  .calc-container{width:100%;max-width:420px;padding:20px}
+  .calc{background:var(--card);padding:16px;border-radius:12px;box-shadow:0 8px 30px rgba(2,6,23,0.6)}
+  .display{background:var(--glass);padding:12px;border-radius:8px;min-height:76px;display:flex;flex-direction:column;justify-content:center;align-items:flex-end}
+  .expression{font-size:14px;color:var(--muted);word-break:break-all}
+  .result{font-size:28px;font-weight:600}
+  .keys{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px}
+  .btn{padding:14px;border-radius:8px;border:0;background:rgba(255,255,255,0.03);color:inherit;font-size:16px;cursor:pointer}
+  .btn:active{transform:translateY(1px)}
+  .wide{grid-column:span 2}
+  .op{background:rgba(255,255,255,0.04)}
+  .equals{grid-column:span 2;background:linear-gradient(90deg,var(--accent),#4f46e5);color:white}
+  .alt{background:rgba(255,255,255,0.02);font-weight:600}
+  .help{text-align:center;color:var(--muted);font-size:13px;margin-top:10px}
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+  @media (max-width:420px){.calc{padding:12px}}
+  </style>
+</head>
+<body>
+  <main class="calc-container">
+    <h1 class="sr-only">Calculator</h1>
+
+    <section class="calc" aria-label="Calculator">
+      <div class="display" id="display" aria-live="polite">
+        <div id="expression" class="expression">0</div>
+        <div id="result" class="result">0</div>
+      </div>
+
+      <div class="keys" role="group" aria-label="Calculator buttons">
+        <!-- Row 1 -->
+        <button data-action="clear" class="btn wide">C</button>
+        <button data-action="back" class="btn">⌫</button>
+        <button data-value="%" class="btn">%</button>
+
+        <!-- Row 2 -->
+        <button data-value="7" class="btn">7</button>
+        <button data-value="8" class="btn">8</button>
+        <button data-value="9" class="btn">9</button>
+        <button data-value="/" class="btn op">÷</button>
+
+        <!-- Row 3 -->
+        <button data-value="4" class="btn">4</button>
+        <button data-value="5" class="btn">5</button>
+        <button data-value="6" class="btn">6</button>
+        <button data-value="*" class="btn op">×</button>
+
+        <!-- Row 4 -->
+        <button data-value="1" class="btn">1</button>
+        <button data-value="2" class="btn">2</button>
+        <button data-value="3" class="btn">3</button>
+        <button data-value="-" class="btn op">−</button>
+
+        <!-- Row 5 -->
+        <button data-value="0" class="btn wide">0</button>
+        <button data-value="." class="btn">.</button>
+        <button data-value="+" class="btn op">+</button>
+
+        <!-- Row 6 -->
+        <button data-action="copy" class="btn alt">Copy</button>
+        <button data-action="equals" class="btn equals">=</button>
+      </div>
+    </section>
+
+    <p class="help">Tip: use keyboard — numbers, + - * /, Enter, Backspace, Escape</p>
+  </main>
+
+  <script>
+  // Single-file calculator JS
+  const displayExpr = document.getElementById('expression')
+  const displayRes = document.getElementById('result')
+  const keys = document.querySelector('.keys')
+
+  let expr = ''
+  let result = '0'
+
+  function updateDisplay() {
+    displayExpr.textContent = expr || '0'
+    displayRes.textContent = result
+  }
+
+  function percentReplacer(s) {
+    return s.replace(/(\d+(?:\.\d+)?)%/g, '($1/100)')
+  }
+
+  function sanitize(s) {
+    if (/[^0-9+\-*/().% ]/.test(s)) return null
+    return s
+  }
+
+  function compute(expression) {
+    try {
+      const replaced = percentReplacer(expression)
+      if (!sanitize(replaced)) return 'Error'
+      if (/constructor|prototype|window|document/.test(replaced)) return 'Error'
+      const fn = new Function(`return (${replaced})`)
+      const val = fn()
+      if (typeof val === 'number' && !Number.isFinite(val)) return 'Error'
+      return String(val)
+    } catch (err) {
+      return 'Error'
+    }
+  }
+
+  keys.addEventListener('click', (e) => {
+    const btn = e.target.closest('button')
+    if (!btn) return
+    const val = btn.getAttribute('data-value')
+    const action = btn.getAttribute('data-action')
+
+    if (action === 'clear') {
+      expr = ''
+      result = '0'
+      updateDisplay()
+      return
+    }
+    if (action === 'back') {
+      expr = expr.slice(0, -1)
+      result = compute(percentReplacer(expr))
+      updateDisplay()
+      return
+    }
+    if (action === 'copy') {
+      navigator.clipboard?.writeText(result).then(() => {
+        const old = btn.textContent
+        btn.textContent = 'Copied'
+        setTimeout(() => btn.textContent = old, 800)
+      }).catch(() => {})
+      return
+    }
+    if (action === 'equals') {
+      result = compute(percentReplacer(expr))
+      expr = (result === 'Error') ? '' : result
+      updateDisplay()
+      return
+    }
+
+    // value button
+    expr += val
+    result = compute(percentReplacer(expr))
+    updateDisplay()
+  })
+
+  window.addEventListener('keydown', (e) => {
+    const key = e.key
+    if ((/^[0-9]$/.test(key)) || ['+', '-', '*', '/', '(', ')', '.'].includes(key)) {
+      expr += key
+      result = compute(percentReplacer(expr))
+      updateDisplay()
+      e.preventDefault()
+      return
+    }
+    if (key === '%') {
+      expr += '%'
+      result = compute(percentReplacer(expr))
+      updateDisplay()
+      e.preventDefault()
+      return
+    }
+    if (key === 'Enter' || key === '=') {
+      result = compute(percentReplacer(expr))
+      expr = (result === 'Error') ? '' : result
+      updateDisplay()
+      e.preventDefault()
+      return
+    }
+    if (key === 'Backspace') {
+      expr = expr.slice(0, -1)
+      result = compute(percentReplacer(expr))
+      updateDisplay()
+      e.preventDefault()
+      return
+    }
+    if (key === 'Escape') {
+      expr = ''
+      result = '0'
+      updateDisplay()
+      e.preventDefault()
+      return
+    }
+  })
+
+  // initial render
+  updateDisplay()
+  </script>
+</body>
+</html>
